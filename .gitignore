@@ -7,4 +7,7 @@ agent-config.json
 .DS_Store
 agent-state.json
 test-backup-folder/
-
+restic
+restic.exe
+restic.zip
+restic.bz2
