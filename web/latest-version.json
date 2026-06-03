@@ -2,5 +2,6 @@
   "version": "1.0.0",
   "releaseDate": "2026-06-03",
   "sha256": "5c6c0e86b03947f6311bd3200b3e5a322e70f6be8a3a3028d70e4fbc87258908",
-  "downloadUrl": "https://agent.backupvault.app/downloads/backupvault-agent.exe"
+  "downloadUrl": "https://agent.backupvault.app/downloads/backupvault-agent.exe",
+  "clerkPublishableKey": "pk_test_c2V0dGxpbmctamF5LTguY2xlcmsuYWNjb3VudHMuZGV2JA"
 }

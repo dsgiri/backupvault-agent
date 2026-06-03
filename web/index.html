@@ -9,8 +9,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="index.css">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/%3E%3C/svg%3E">
+  <script async src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js" crossorigin="anonymous"></script>
 </head>
-<body>
+<body style="display: none;">
   <!-- Decorative background elements -->
   <div class="glow glow-top"></div>
   <div class="glow glow-bottom"></div>
@@ -179,6 +180,27 @@
   </div>
 
   <script>
+    window.addEventListener('load', async () => {
+      try {
+        const response = await fetch('/latest-version.json');
+        const manifest = await response.json();
+        const publishableKey = manifest.clerkPublishableKey || 'pk_test_c2V0dGxpbmctamF5LTguY2xlcmsuYWNjb3VudHMuZGV2JA';
+        
+        await Clerk.load({ publishableKey });
+
+        if (!Clerk.user) {
+          Clerk.redirectToSignIn({
+            signInForceRedirectUrl: window.location.href
+          });
+        } else {
+          document.body.style.display = 'block';
+        }
+      } catch (err) {
+        console.error('Clerk Auth loading failed. Proceeding under local bypass.', err);
+        document.body.style.display = 'block';
+      }
+    });
+
     function switchTab(platform) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
