@@ -55,6 +55,12 @@ function loadConfig() {
       if (raw.restic_password) {
         raw.restic_password = decryptSecret(raw.restic_password);
       }
+      if (raw.storage_id) {
+        raw.storage_id = decryptSecret(raw.storage_id);
+      }
+      if (raw.storage_key) {
+        raw.storage_key = decryptSecret(raw.storage_key);
+      }
       return raw;
     } catch {
       return {};
@@ -73,6 +79,12 @@ function saveConfig(config: any) {
   }
   if (cloned.restic_password) {
     cloned.restic_password = encryptSecret(cloned.restic_password);
+  }
+  if (cloned.storage_id) {
+    cloned.storage_id = encryptSecret(cloned.storage_id);
+  }
+  if (cloned.storage_key) {
+    cloned.storage_key = encryptSecret(cloned.storage_key);
   }
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cloned, null, 2), 'utf-8');
 }
@@ -164,12 +176,26 @@ async function ensureResticBinary(): Promise<string> {
   }
 }
 
-async function initResticRepo(config: any, resticPath: string) {
-  const env = {
+function getResticEnv(config: any) {
+  const env: Record<string, string | undefined> = {
     ...process.env,
     RESTIC_REPOSITORY: config.restic_repository,
     RESTIC_PASSWORD: config.restic_password
   };
+
+  if (config.storage_backend === 'b2') {
+    env.B2_ACCOUNT_ID = config.storage_id;
+    env.B2_ACCOUNT_KEY = config.storage_key;
+  } else if (config.storage_backend === 's3' || config.storage_backend === 'wasabi') {
+    env.AWS_ACCESS_KEY_ID = config.storage_id;
+    env.AWS_SECRET_ACCESS_KEY = config.storage_key;
+  }
+
+  return env;
+}
+
+async function initResticRepo(config: any, resticPath: string) {
+  const env = getResticEnv(config);
 
   console.log(`\x1b[36m[Restic Orchestrator] Checking repository configuration...\x1b[0m`);
   try {
@@ -226,7 +252,7 @@ async function sendTelemetry(bearerToken: string, bytesVaulted: number, checksum
   }
 }
 
-async function register(token: string) {
+async function register(token: string, storage?: string, bucket?: string, id?: string, key?: string) {
   console.log(`\x1b[36m[BackupVault Agent] Initiating Handshake with server at ${SERVER_URL}...\x1b[0m`);
   
   const deviceName = os.hostname();
@@ -236,7 +262,7 @@ async function register(token: string) {
   const encryptionKey = crypto.randomBytes(32).toString('hex');
   const encryptionKeyHash = crypto.createHash('sha256').update(encryptionKey).digest('hex');
 
-  const payload = {
+  const payload: any = {
     token,
     device_name: deviceName,
     physical_mac_address: macAddress,
@@ -244,6 +270,10 @@ async function register(token: string) {
     agent_version: agentVersion,
     encryption_key_hash: encryptionKeyHash
   };
+
+  if (storage) {
+    payload.storage = storage;
+  }
 
   try {
     const response = await fetch(`${SERVER_URL}/api/agent/register`, {
@@ -259,16 +289,42 @@ async function register(token: string) {
       return;
     }
 
-    const newConfig = {
+    // Determine config parameters based on whether we are in BYOS mode
+    const isByos = !!(storage && bucket && id && key);
+    let resticRepo = data.restic_repository;
+    let resticPsw = data.restic_password;
+
+    if (isByos) {
+      console.log(`\x1b[36m[BackupVault Agent] BYOS Configuration Engaged. Generating local Restic repository...\x1b[0m`);
+      resticPsw = "BV_PSW_" + crypto.randomBytes(8).toString('hex').toUpperCase();
+      if (storage === 'b2') {
+        resticRepo = `b2:${bucket}`;
+      } else if (storage === 'wasabi') {
+        resticRepo = `s3:https://s3.wasabisys.com/${bucket}`;
+      } else {
+        resticRepo = `s3:https://s3.amazonaws.com/${bucket}`;
+      }
+    }
+
+    const newConfig: any = {
       endpoint_uuid: data.endpoint_uuid,
       bearer_token: data.bearer_token,
-      restic_repository: data.restic_repository,
-      restic_password: data.restic_password,
+      restic_repository: resticRepo,
+      restic_password: resticPsw,
       device_name: deviceName,
       encryption_key: encryptionKey,
       encryption_key_hash: encryptionKeyHash,
       registered_at: new Date().toISOString()
     };
+
+    if (isByos) {
+      newConfig.storage_backend = storage;
+      newConfig.storage_bucket = bucket;
+      newConfig.storage_id = id;
+      newConfig.storage_key = key;
+    } else if (storage) {
+      newConfig.storage_backend = storage;
+    }
 
     saveConfig(newConfig);
 
@@ -329,11 +385,7 @@ async function backup(folderPath: string) {
 
   console.log(`\n\x1b[36m[Restic Orchestrator] Spawning restic backup on: ${absolutePath}...\x1b[0m`);
 
-  const env = {
-    ...process.env,
-    RESTIC_REPOSITORY: resticRepository,
-    RESTIC_PASSWORD: resticPassword
-  };
+  const env = getResticEnv(config);
 
   const child = spawn(resticPath, ['backup', absolutePath, '--json'], { env });
 
@@ -498,9 +550,9 @@ switch (command) {
   case 'register':
     if (!args[1]) {
       console.error('\x1b[31m[Error] Please provide a bootstrap deployment token.\x1b[0m');
-      console.log('Usage: npx tsx src/agent.ts register <bootstrap_token>');
+      console.log('Usage: npx tsx src/agent.ts register <bootstrap_token> [storage] [bucket] [id] [key]');
     } else {
-      register(args[1]);
+      register(args[1], args[2], args[3], args[4], args[5]);
     }
     break;
   case 'backup':
