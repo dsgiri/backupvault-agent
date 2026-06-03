@@ -5,7 +5,11 @@
   "main": "src/agent.ts",
   "type": "module",
   "scripts": {
-    "agent": "tsx src/agent.ts"
+    "agent": "tsx src/agent.ts",
+    "build:js": "powershell -Command \"New-Item -ItemType Directory -Force -Path dist; npx esbuild src/agent.ts --bundle --platform=node --format=cjs --outfile=dist/agent.js\"",
+    "build:blob": "node --experimental-sea-config sea-config.json",
+    "build:exe": "powershell -Command \"Copy-Item (Get-Command node).Source dist/backupvault-agent.exe -Force; npx postject dist/backupvault-agent.exe NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2\"",
+    "package": "npm run build:js && npm run build:blob && npm run build:exe"
   },
   "dependencies": {
     "dotenv": "^16.4.5"
