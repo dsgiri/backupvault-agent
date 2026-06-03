@@ -182,7 +182,7 @@
   <script>
     window.addEventListener('load', async () => {
       try {
-        const response = await fetch('/latest-version.json');
+        const response = await fetch('/api/clerk-key');
         const manifest = await response.json();
         const publishableKey = manifest.clerkPublishableKey || 'pk_test_c2V0dGxpbmctamF5LTguY2xlcmsuYWNjb3VudHMuZGV2JA';
         
