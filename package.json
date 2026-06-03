@@ -9,6 +9,7 @@
     "build:js": "powershell -Command \"New-Item -ItemType Directory -Force -Path dist; npx esbuild src/agent.ts --bundle --platform=node --format=cjs --outfile=dist/agent.js\"",
     "build:blob": "node --experimental-sea-config sea-config.json",
     "build:exe": "powershell -Command \"Copy-Item (Get-Command node).Source dist/backupvault-agent.exe -Force; npx postject dist/backupvault-agent.exe NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2\"",
+    "build:web": "powershell -Command \"New-Item -ItemType Directory -Force -Path web/downloads; if (Test-Path dist/backupvault-agent.exe) { Copy-Item dist/backupvault-agent.exe web/downloads/backupvault-agent.exe -Force }\"",
     "package": "npm run build:js && npm run build:blob && npm run build:exe"
   },
   "dependencies": {
